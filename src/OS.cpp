@@ -6,7 +6,7 @@ cstr OS_GetClipboard () {
 }
 
 int OS_GetCPUCount () {
-  return SDL_GetCPUCount();
+  return SDL_GetNumLogicalCPUCores();
 }
 
 cstr OS_GetVideoDriver () {

@@ -45,6 +45,8 @@ endif ()
 
 
 
+target_include_directories (phx PUBLIC "${PHX_BULLET_INCLUDE_DIR}")
+
 target_include_directories (phx PUBLIC "include")
 
 target_include_directories (phx PUBLIC "ext/include")
@@ -58,6 +60,12 @@ target_include_directories (phx PUBLIC "${PHX_MINIMP3_DIR}")
 set_target_properties (phx PROPERTIES
 
   PREFIX "lib"
+
+  RELWITHDEBINFO_POSTFIX ""
+
+  MINSIZEREL_POSTFIX ""
+
+  RELEASE_POSTFIX ""
 
   OUTPUT_NAME_DEBUG "phx${ARCH}d"
 

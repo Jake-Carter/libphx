@@ -3,16 +3,18 @@
 #include "SDL.h"
 
 static uint64 lastAction;
-static uchar* stateLast;
-static uchar* stateCurr;
+static bool* stateLast;
+static bool* stateCurr;
+static int stateSize;
 
 void Keyboard_Init () {
-  int size;
-  uchar const* state = SDL_GetKeyboardState(&size);
-  stateLast = MemNewArray(uchar, size);
-  stateCurr = MemNewArray(uchar, size);
-  MemCpy(stateLast, state, size);
-  MemCpy(stateCurr, state, size);
+  int size = 0;
+  bool const* state = SDL_GetKeyboardState(&size);
+  stateSize = size;
+  stateLast = MemNewArray(bool, size);
+  stateCurr = MemNewArray(bool, size);
+  MemCpy(stateLast, state, (size_t) size * sizeof(bool));
+  MemCpy(stateCurr, state, (size_t) size * sizeof(bool));
   lastAction = SDL_GetPerformanceCounter();
 }
 
@@ -22,13 +24,25 @@ void Keyboard_Free () {
 }
 
 void Keyboard_UpdatePre () {
-  int size; uchar const* state = SDL_GetKeyboardState(&size);
-  MemCpy(stateLast, state, size);
+  int size = 0;
+  bool const* state = SDL_GetKeyboardState(&size);
+  if (size > stateSize) {
+    stateLast = (bool*) MemRealloc(stateLast, (size_t) size * sizeof(bool));
+    stateCurr = (bool*) MemRealloc(stateCurr, (size_t) size * sizeof(bool));
+    stateSize = size;
+  }
+  MemCpy(stateLast, state, (size_t) size * sizeof(bool));
 }
 
 void Keyboard_UpdatePost () {
-  int size; uchar const* state = SDL_GetKeyboardState(&size);
-  MemCpy(stateCurr, state, size);
+  int size = 0;
+  bool const* state = SDL_GetKeyboardState(&size);
+  if (size > stateSize) {
+    stateLast = (bool*) MemRealloc(stateLast, (size_t) size * sizeof(bool));
+    stateCurr = (bool*) MemRealloc(stateCurr, (size_t) size * sizeof(bool));
+    stateSize = size;
+  }
+  MemCpy(stateCurr, state, (size_t) size * sizeof(bool));
 
   for (int i = 0; i < size; ++i) {
     if (stateCurr[i] != stateLast[i]) {
@@ -39,7 +53,7 @@ void Keyboard_UpdatePost () {
 }
 
 bool Keyboard_Down (Key key) {
-   return stateCurr[key] != 0;
+   return stateCurr[key];
 }
 
 bool Keyboard_Pressed (Key key) {

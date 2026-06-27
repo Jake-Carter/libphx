@@ -93,6 +93,7 @@ FetchContent_MakeAvailable (bullet)
 if (CMAKE_VERSION VERSION_GREATER_EQUAL "4.0")
   set (CMAKE_POLICY_VERSION_MINIMUM "${_phx_saved_policy_minimum}")
 endif ()
+set (PHX_BULLET_INCLUDE_DIR "${bullet_SOURCE_DIR}/src" CACHE PATH "" FORCE)
 
 # ---------------------------------------------------------------------------
 # LuaJIT — MSVC build via ExternalProject
@@ -105,15 +106,14 @@ set (LUAJIT_BUILD_DIR "${CMAKE_BINARY_DIR}/_deps/luajit-build")
 
 ExternalProject_Add (luajit_ext
   GIT_REPOSITORY https://github.com/LuaJIT/LuaJIT.git
-  GIT_TAG        v2.1.ROLLING
+  GIT_TAG        v2.1.0-beta3
   GIT_SHALLOW    TRUE
   PREFIX         "${CMAKE_BINARY_DIR}/_deps/luajit"
   SOURCE_DIR     "${LUAJIT_SRC_DIR}"
   BINARY_DIR     "${LUAJIT_BUILD_DIR}"
   CONFIGURE_COMMAND ""
   BUILD_COMMAND
-    ${CMAKE_COMMAND} -E env "PATH=$ENV{PATH}"
-    cmd /c "cd /d ${LUAJIT_SRC_DIR}/src && msvcbuild.bat"
+    cmd /c "${CMAKE_CURRENT_SOURCE_DIR}/cmake/build_luajit_msvc.bat" "${LUAJIT_SRC_DIR}"
   INSTALL_COMMAND ""
   BUILD_BYPRODUCTS
     "${LUAJIT_SRC_DIR}/src/lua51.lib"
@@ -140,6 +140,37 @@ if (NOT minimp3_POPULATED)
   FetchContent_Populate (minimp3)
 endif ()
 set (PHX_MINIMP3_DIR "${minimp3_SOURCE_DIR}" CACHE PATH "" FORCE)
+
+# ---------------------------------------------------------------------------
+# LuaFileSystem — lfs.dll for script I/O helpers (IOEx.lua)
+# ---------------------------------------------------------------------------
+
+FetchContent_Declare (lfs
+  GIT_REPOSITORY https://github.com/lunarmodules/luafilesystem.git
+  GIT_TAG        v1_8_0
+  GIT_SHALLOW    TRUE)
+
+FetchContent_GetProperties (lfs)
+if (NOT lfs_POPULATED)
+  FetchContent_Populate (lfs)
+endif ()
+
+add_library (lfs SHARED "${lfs_SOURCE_DIR}/src/lfs.c")
+add_dependencies (lfs luajit_ext)
+target_include_directories (lfs PRIVATE
+  "${PHX_LUAJIT_INCLUDE_DIR}"
+  "${LUAJIT_SRC_DIR}/src")
+target_link_libraries (lfs lua51)
+set_target_properties (lfs PROPERTIES
+  PREFIX ""
+  RELWITHDEBINFO_POSTFIX ""
+  MINSIZEREL_POSTFIX ""
+  RELEASE_POSTFIX ""
+  OUTPUT_NAME_DEBUG "lfsd"
+  OUTPUT_NAME_RELEASE "lfs"
+  OUTPUT_NAME_RELWITHDEBINFO "lfs"
+  OUTPUT_NAME_MINSIZEREL "lfs")
+phx_configure_output_dir (lfs)
 
 # ---------------------------------------------------------------------------
 # Helper: copy a shared DLL next to phx/lt at build time

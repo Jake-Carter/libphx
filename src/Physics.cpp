@@ -271,7 +271,9 @@ void Physics_PrintProfiling (Physics* self) {
   }
   Warn("Active %i / Total %i", numActive, collisionObjects.size());
 
+#if defined(BT_ENABLE_PROFILE) && !defined(BT_NO_PROFILE)
   CProfileManager::dumpAll();
+#endif
 }
 
 void Physics_DrawBoundingBoxesLocal (Physics* self) {

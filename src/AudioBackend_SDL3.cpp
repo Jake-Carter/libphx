@@ -176,8 +176,8 @@ static void AudioBackend_Mix () {
 
 void AudioBackend_Init () {
   MemZero(&self, sizeof(self));
-  self.listenerFwd = (Vec3f) { 0, 0, -1 };
-  self.listenerUp  = (Vec3f) { 0, 1, 0 };
+  self.listenerFwd = Vec3f_Create(0, 0, -1);
+  self.listenerUp  = Vec3f_Create(0, 1, 0);
   self.doppler = 1.0f;
   self.distanceScale = 1.0f;
   self.rolloff = 1.0f;
