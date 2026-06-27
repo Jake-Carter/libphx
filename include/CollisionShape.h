@@ -74,5 +74,6 @@ PHX_API CollisionShape*  CollisionShape_CreateSphere          (float);
 PHX_API CollisionShape*  CollisionShape_CreateSphereFromMesh  (Mesh*);
 PHX_API CollisionShape*  CollisionShape_CreateHullFromMesh    (Mesh*);
 PHX_API CollisionShape*  CollisionShape_GetCached             (int);
+PHX_API btCollisionShape*  CollisionShape_DuplicateBullet      (CollisionShape* shape);
 
 #endif

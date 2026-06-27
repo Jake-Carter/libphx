@@ -21,9 +21,9 @@
 #pragma warning(disable : 4625) // deleted copy constructor
 #pragma warning(disable : 4626) // deleted assignemnt operator
 #pragma warning(disable : 5027) // deleted move operator
-#include "bullet/btBulletDynamicsCommon.h"
-#include "bullet/BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
-#include <bullet/BulletCollision/CollisionDispatch/btGhostObject.h>
+#include "btBulletDynamicsCommon.h"
+#include "BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
+#include "BulletCollision/CollisionDispatch/btGhostObject.h"
 #pragma warning(pop)
 
 inline static Vec3f Vec3f_FromBullet (btVector3 const& v) {
@@ -229,6 +229,9 @@ struct GhostObject : public btGhostObject {
 
 struct BroadphaseFilterCallback : public btOverlapFilterCallback {
   virtual bool needBroadphaseCollision(btBroadphaseProxy* proxy0, btBroadphaseProxy* proxy1) const {
+    if (!proxy0 || !proxy1 || !proxy0->m_clientObject || !proxy1->m_clientObject)
+      return true;
+
     btCollisionObject* colObj0 = (btCollisionObject*) proxy0->m_clientObject;
     btCollisionObject* colObj1 = (btCollisionObject*) proxy1->m_clientObject;
 

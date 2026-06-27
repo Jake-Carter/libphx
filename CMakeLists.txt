@@ -45,7 +45,7 @@ endif ()
 
 
 
-target_include_directories (phx PUBLIC "${PHX_BULLET_INCLUDE_DIR}")
+target_include_directories (phx BEFORE PUBLIC "${PHX_BULLET_INCLUDE_DIR}")
 
 target_include_directories (phx BEFORE PUBLIC
   "${freetype_SOURCE_DIR}/include"
@@ -53,6 +53,7 @@ target_include_directories (phx BEFORE PUBLIC
 
 target_include_directories (phx PUBLIC "include")
 
+# ext/include (stb, etc.) — exclude stale bullet/2.x headers; use PHX_BULLET_INCLUDE_DIR
 target_include_directories (phx PUBLIC "ext/include")
 
 target_include_directories (phx PUBLIC "${PHX_LUAJIT_INCLUDE_DIR}")

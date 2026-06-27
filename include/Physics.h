@@ -68,5 +68,6 @@ PHX_API void      Physics_DrawTriggers            (Physics*);
 PHX_API void      Physics_DrawWireframes          (Physics*);
 
 PRIVATE void  Physics_FlushCachedRigidBodyData  (Physics*, RigidBody*);
+PRIVATE void  Physics_UpdateRigidBodyAabb       (Physics*, RigidBody*);
 
 #endif

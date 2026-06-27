@@ -77,7 +77,8 @@ CollisionShape* CollisionShape_Create (CollisionShape shape) {
     }
 
     case CollisionShapeType_Compound: {
-      shape.base.handle = new btCompoundShape(true, 4);
+      /* Dynamic AABB tree must be disabled for removeChildShapeByIndex (detach). */
+      shape.base.handle = new btCompoundShape(false, 4);
       shape.base.handle->setLocalScaling(btVector3(REPEAT3(shape.scale)));
       break;
     }
@@ -90,6 +91,35 @@ CollisionShape* CollisionShape_Create (CollisionShape shape) {
 
 void CollisionShape_Free (CollisionShape*) {
   /* TODO: Actually free shapes. */
+}
+
+btCollisionShape* CollisionShape_DuplicateBullet (CollisionShape* shape) {
+  Assert(shape->scale > 0);
+  switch (shape->type) {
+    case CollisionShapeType_Sphere: {
+      btSphereShape* sphere = new btSphereShape(shape->sphere.radius);
+      sphere->setLocalScaling(btVector3(REPEAT3(shape->scale)));
+      return sphere;
+    }
+
+    case CollisionShapeType_Box: {
+      btBoxShape* box = new btBoxShape(Vec3f_ToBullet(&shape->box.halfExtents));
+      box->setLocalScaling(btVector3(REPEAT3(shape->scale)));
+      return box;
+    }
+
+    case CollisionShapeType_Hull: {
+      return new btUniformScalingShape(shape->hull.hullHandle, shape->scale);
+    }
+
+    case CollisionShapeType_Compound:
+      Fatal("CollisionShape_DuplicateBullet: Cannot duplicate compound shapes.");
+      return 0;
+
+    default:
+      Fatal("CollisionShape_DuplicateBullet: Unhandled type %i.", shape->type);
+      return 0;
+  }
 }
 
 CollisionShape* CollisionShape_CreateBox (Vec3f* halfExtents) {

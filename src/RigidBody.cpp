@@ -31,7 +31,10 @@ inline static void RigidBody_SetFlag (RigidBody* self, int flag, bool enable) {
 RigidBody* RigidBody_GetPart (RigidBody* self, int iCompound) {
   Assert(RigidBody_IsCompound(self));
   self = self->parent;
-  while (self->iCompound != iCompound) self = self->next;
+  while (self && self->iCompound != iCompound)
+    self = self->next;
+  if (!self)
+    Fatal("RigidBody_GetPart: Invalid compound part index %i.", iCompound);
   return self;
 }
 
@@ -190,6 +193,15 @@ void RigidBody_ApplyTorque (RigidBody* self, Vec3f* torque) {
   rigidBody->activate();
 }
 
+inline static btCollisionShape* RigidBody_AttachedChildPlaceholder () {
+  static btCollisionShape* placeholder = 0;
+  if (!placeholder) {
+    placeholder = new btBoxShape(btVector3(0.001f, 0.001f, 0.001f));
+    placeholder->setMargin(0.001f);
+  }
+  return placeholder;
+}
+
 void RigidBody_Attach (RigidBody* parent, RigidBody* child, Vec3f* pos, Quat* rot) {
   if (RigidBody_IsChild(parent))
     Fatal("RigidBody_Attach: Recursive attachment is not supported. Parent is already attached to something.");
@@ -202,17 +214,24 @@ void RigidBody_Attach (RigidBody* parent, RigidBody* child, Vec3f* pos, Quat* ro
 
   //Convert parent to a compound
   if (!RigidBody_IsParent(parent)) {
-    btRigidBody*    pBody  = parent->handle;
-    CollisionShape* pShape = CollisionShape_GetCached(parent->iShape);
-    btTransform     pTrans = btTransform::getIdentity();
+    btRigidBody*     pBody   = parent->handle;
+    CollisionShape*  pShape  = CollisionShape_GetCached(parent->iShape);
+    btTransform      pTrans  = btTransform::getIdentity();
+
+    if (!pBody || !pShape || !pShape->base.handle)
+      Fatal("RigidBody_Attach: Invalid parent body or shape.");
 
     CollisionShape shapeDef = {};
     shapeDef.scale = 1.0f;
     shapeDef.type  = CollisionShapeType_Compound;
-    CollisionShape* cmpShape = CollisionShape_Create(shapeDef);
+    CollisionShape*  cmpShape = CollisionShape_Create(shapeDef);
+    btCompoundShape* compound = cmpShape->compound.handle;
 
-    cmpShape->compound.handle->addChildShape(pTrans, pShape->base.handle);
-    pBody->setCollisionShape(cmpShape->compound.handle);
+    if (!compound)
+      Fatal("RigidBody_Attach: Failed to create compound shape.");
+
+    pBody->setCollisionShape(compound);
+    compound->addChildShape(pTrans, pShape->base.handle);
     parent->iCompound      = 0;
     parent->iCompoundShape = cmpShape->iShape;
     parent->parent         = parent;
@@ -220,20 +239,34 @@ void RigidBody_Attach (RigidBody* parent, RigidBody* child, Vec3f* pos, Quat* ro
   }
 
   /* NOTE : Position is relative to the unscaled parent. */
-  CollisionShape* pShape   = CollisionShape_GetCached(parent->iShape);
-  CollisionShape* cmpShape = CollisionShape_GetCached(parent->iCompoundShape);
-  CollisionShape* cShape   = CollisionShape_GetCached(child->iShape);
-  btTransform     cTrans   = btTransform(Quat_ToBullet(rot), Vec3f_ToBullet(pos) * pShape->scale);
+  CollisionShape*  pShape   = CollisionShape_GetCached(parent->iShape);
+  CollisionShape*  cmpShape = CollisionShape_GetCached(parent->iCompoundShape);
+  CollisionShape*  cShape   = CollisionShape_GetCached(child->iShape);
+  btTransform      cTrans   = btTransform(Quat_ToBullet(rot), Vec3f_ToBullet(pos) * pShape->scale);
+  btRigidBody*     cBody    = child->handle;
+  btCompoundShape* compound = cmpShape->compound.handle;
 
   //Insert child into the compound list
   child->parent = parent;
   child->next   = parent->next;
   parent->next  = child;
 
-  //Add child to the compound
-  cmpShape->compound.handle->addChildShape(cTrans, cShape->base.handle);
-  child->iCompound      = cmpShape->compound.handle->getNumChildShapes() - 1;
+  if (!cBody || !cShape || !cShape->base.handle)
+    Fatal("RigidBody_Attach: Invalid child body or shape.");
+
+  /* Child body keeps a placeholder while its real shape lives in the compound. */
+  cBody->setCollisionShape(RigidBody_AttachedChildPlaceholder());
+  btCollisionShape* childBulletShape = CollisionShape_DuplicateBullet(cShape);
+  compound->addChildShape(cTrans, childBulletShape);
+  child->iCompound      = compound->getNumChildShapes() - 1;
   child->iCompoundShape = cmpShape->iShape;
+
+  compound->recalculateLocalAabb();
+  RigidBody_RecalculateInertia(parent);
+  if (parent->physics) {
+    Physics_UpdateRigidBodyAabb(parent->physics, parent);
+    Physics_FlushCachedRigidBodyData(parent->physics, parent);
+  }
 }
 
 void RigidBody_Detach (RigidBody* parent, RigidBody* child) {
@@ -246,6 +279,7 @@ void RigidBody_Detach (RigidBody* parent, RigidBody* child) {
   btRigidBody*     cBody       = child->handle;
   btCompoundShape* compound    = (btCompoundShape*) pBody->getCollisionShape();
   btTransform      cLocalTrans = compound->getChildTransform(child->iCompound);
+  CollisionShape*  cShape      = CollisionShape_GetCached(child->iShape);
 
   //Remove child from the compound
   { /* HACK : btCompoundShape does a 'remove fast' internally. */
@@ -268,6 +302,7 @@ void RigidBody_Detach (RigidBody* parent, RigidBody* child) {
   //Apply current position, rotation, and velocity
   btTransform  cTrans = pBody->getWorldTransform() * cLocalTrans;
   btVector3    cVel   = pBody->getVelocityInLocalPoint(cLocalTrans.getOrigin());
+  cBody->setCollisionShape(cShape->base.handle);
   cBody->setWorldTransform(cTrans);
   cBody->setLinearVelocity(cVel);
 

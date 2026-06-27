@@ -406,7 +406,21 @@ void Physics_FlushCachedRigidBodyData (Physics* self, RigidBody* rigidBody) {
            when Bullet later casts the btCollisionShape* stored in the pair to a
            specific shape expected by the algorithm and tries to use it. */
 
-  btBroadphaseProxy*      bpProxy   = rigidBody->handle->getBroadphaseHandle();
+  if (!self || !rigidBody || !rigidBody->physics)
+    return;
+
+  btBroadphaseProxy* bpProxy = rigidBody->handle->getBroadphaseHandle();
+  if (!bpProxy)
+    return;
+
   btOverlappingPairCache* pairCache = self->broadphase->getOverlappingPairCache();
   pairCache->cleanProxyFromPairs(bpProxy, self->dispatcher);
+}
+
+void Physics_UpdateRigidBodyAabb (Physics* self, RigidBody* rigidBody) {
+  if (!self || !rigidBody || !rigidBody->handle)
+    return;
+  if (!rigidBody->handle->getBroadphaseHandle())
+    return;
+  self->dynamicsWorld->updateSingleAabb(rigidBody->handle);
 }
