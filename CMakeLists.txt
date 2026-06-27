@@ -53,7 +53,7 @@ target_include_directories (phx BEFORE PUBLIC
 
 target_include_directories (phx PUBLIC "include")
 
-# ext/include (stb, etc.) — exclude stale bullet/2.x headers; use PHX_BULLET_INCLUDE_DIR
+# ext/include (stb, legacy reference headers) — active Bullet/FreeType/SDL from FetchContent
 target_include_directories (phx PUBLIC "ext/include")
 
 target_include_directories (phx PUBLIC "${PHX_LUAJIT_INCLUDE_DIR}")

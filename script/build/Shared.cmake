@@ -18,6 +18,21 @@ endif ()
 
 set (PLATARCH "${PLATFORM}${ARCH}")
 
+# MSVC defaults to /EHsc; project uses /EHs-c- (no exceptions). Strip /EHsc from
+# global flags so D9025 override warnings do not spam every translation unit.
+if (WINDOWS)
+  foreach (_phx_flag_var
+      CMAKE_CXX_FLAGS
+      CMAKE_CXX_FLAGS_DEBUG
+      CMAKE_CXX_FLAGS_RELEASE
+      CMAKE_CXX_FLAGS_RELWITHDEBINFO
+      CMAKE_CXX_FLAGS_MINSIZEREL)
+    if (DEFINED ${_phx_flag_var})
+      string (REPLACE "/EHsc" "" ${_phx_flag_var} "${${_phx_flag_var}}")
+    endif ()
+  endforeach ()
+endif ()
+
 function (phx_configure_output_dir target)
   set_target_properties (${target} PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin"
@@ -47,12 +62,8 @@ function (phx_configure_target_properties target)
     target_compile_options (${target} PRIVATE "/GS-")
     target_compile_options (${target} PRIVATE "/GR-")
     target_compile_options (${target} PRIVATE "/arch:SSE2")
-    # Suppress VS default /EHsc conflicting with /EHs-c-
-    string (REPLACE "/EHsc" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-    string (REPLACE "/EHsc" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
-    string (REPLACE "/EHsc" "" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
-    string (REPLACE "/EHsc" "" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
-    string (REPLACE "/EHsc" "" CMAKE_CXX_FLAGS_MINSIZEREL "${CMAKE_CXX_FLAGS_MINSIZEREL}")
+    # Residual D9025 if a TU still sees /EHsc from toolset defaults
+    target_compile_options (${target} PRIVATE "/wd9025")
   elseif (LINUX)
     target_compile_definitions (${target} PRIVATE UNIX=1)
 

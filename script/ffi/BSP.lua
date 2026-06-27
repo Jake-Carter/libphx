@@ -10,6 +10,7 @@ do -- C Definitions
     bool BSP_IntersectRay         (BSP*, Ray const*, float* tHit);
     bool BSP_IntersectLineSegment (BSP*, LineSegment const*, Vec3f* pHit);
     bool BSP_IntersectSphere      (BSP*, Sphere const*, Vec3f* pHit);
+    bool BSPDebug_GetIntersectSphereTriangles (BSP*, Sphere*, IntersectSphereProfiling* sphereProf);
   ]]
 end
 
@@ -35,6 +36,7 @@ do -- Metatype for class instances
       intersectRay         = libphx.BSP_IntersectRay,
       intersectLineSegment = libphx.BSP_IntersectLineSegment,
       intersectSphere      = libphx.BSP_IntersectSphere,
+      getIntersectSphereTriangles = libphx.BSPDebug_GetIntersectSphereTriangles,
     },
   }
 
