@@ -39,14 +39,20 @@ function (phx_configure_target_properties target)
     target_compile_definitions (${target} PRIVATE WIN32_LEAN_AND_MEAN)
     target_compile_definitions (${target} PRIVATE WINDOWS=1)
 
-    target_compile_options (${target} PRIVATE "/MP")         # Multithreaded Build
-    target_compile_options (${target} PRIVATE "/MD")         # Dynamic C Runtime
-    target_compile_options (${target} PRIVATE "/EHs-c-")     # No exception handling
-    target_compile_options (${target} PRIVATE "/fp:fast")    # No strict FP
-    target_compile_options (${target} PRIVATE "/GL")         # Whole Program Optimization
-    target_compile_options (${target} PRIVATE "/GS-")        # No Buffer Security Checks
-    target_compile_options (${target} PRIVATE "/GR-")        # No RTTI
-    target_compile_options (${target} PRIVATE "/arch:SSE2")  # Assume SSE2+
+    target_compile_options (${target} PRIVATE "/MP")
+    target_compile_options (${target} PRIVATE "/MD")
+    target_compile_options (${target} PRIVATE "/EHs-c-")
+    target_compile_options (${target} PRIVATE "/fp:fast")
+    target_compile_options (${target} PRIVATE "$<$<CONFIG:Release>:/GL>")
+    target_compile_options (${target} PRIVATE "/GS-")
+    target_compile_options (${target} PRIVATE "/GR-")
+    target_compile_options (${target} PRIVATE "/arch:SSE2")
+    # Suppress VS default /EHsc conflicting with /EHs-c-
+    string (REPLACE "/EHsc" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+    string (REPLACE "/EHsc" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
+    string (REPLACE "/EHsc" "" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
+    string (REPLACE "/EHsc" "" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
+    string (REPLACE "/EHsc" "" CMAKE_CXX_FLAGS_MINSIZEREL "${CMAKE_CXX_FLAGS_MINSIZEREL}")
   elseif (LINUX)
     target_compile_definitions (${target} PRIVATE UNIX=1)
 

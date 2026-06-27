@@ -19,9 +19,9 @@ static const float Threshold_Pressed  = 0.5f;
 static const float Threshold_Released = 0.4f;
 
 struct DeviceState {
-  int32  transitions[SDL_NUM_SCANCODES];
-  bool   buttons[SDL_NUM_SCANCODES];
-  float  axes[SDL_NUM_SCANCODES];
+  int32  transitions[SDL_SCANCODE_COUNT];
+  bool   buttons[SDL_SCANCODE_COUNT];
+  float  axes[SDL_SCANCODE_COUNT];
   uint32 lastEventTimestamp;
   bool   isConnected;
 };
@@ -59,8 +59,12 @@ inline static DeviceState* Input_GetDeviceState (Device device) {
 
 inline static void Input_SetActiveDevice (Device device) {
   self.activeDevice = device;
-  if (self.autoHideMouse)
-    SDL_ShowCursor(device.type == DeviceType_Mouse ? SDL_ENABLE : SDL_DISABLE);
+  if (self.autoHideMouse) {
+    if (device.type == DeviceType_Mouse)
+      SDL_ShowCursor();
+    else
+      SDL_HideCursor();
+  }
 }
 
 inline static bool Input_GetDeviceExists (Device device) {
@@ -171,8 +175,8 @@ void Input_Init () {
    *        complexity for a much less irritating quirk. This bug has been
    *        reported.
    *        https://bugzilla.libsdl.org/show_bug.cgi?id=4165 */
-  SDL_bool result = SDL_SetHint(SDL_HINT_MOUSE_FOCUS_CLICKTHROUGH, "1");
-  if (result != SDL_TRUE)
+  bool result = SDL_SetHint(SDL_HINT_MOUSE_FOCUS_CLICKTHROUGH, "1");
+  if (!result)
     Warn("Input_Init: SDL_SetHint failed");
 
   for (int iDev = 0; iDev < DeviceType_COUNT; iDev++) {
@@ -250,20 +254,20 @@ void Input_Update () {
 
   { /* Process New Input */
     SDL_Event sdl;
-    while (SDL_PollEvent(&sdl) != 0) {
+    while (SDL_PollEvent(&sdl)) {
       InputEvent event = {};
-      event.timestamp = sdl.common.timestamp;
+      event.timestamp = (uint32) SDL_GetTicks();
 
       switch(sdl.type) {
 
 
         /* DeviceType_Keyboard */
-        case SDL_KEYDOWN: {
+        case SDL_EVENT_KEY_DOWN: {
           if (sdl.key.repeat) continue;
           Device device = { DeviceType_Keyboard, 0 };
 
           event.device = device;
-          event.button = Button_FromSDLScancode(sdl.key.keysym.scancode);
+          event.button = Button_FromSDLScancode(sdl.key.scancode);
           event.value  = 1.0f;
           event.state  = State_Changed | State_Pressed | State_Down;
           if (event.button == Button_Null) continue;
@@ -272,11 +276,11 @@ void Input_Update () {
         }
         break;
 
-        case SDL_KEYUP: {
+        case SDL_EVENT_KEY_UP: {
           Device device = { DeviceType_Keyboard, 0 };
 
           event.device = device;
-          event.button = Button_FromSDLScancode(sdl.key.keysym.scancode);
+          event.button = Button_FromSDLScancode(sdl.key.scancode);
           event.value  = 0.0f;
           event.state  = State_Changed | State_Released;
           if (event.button == Button_Null) continue;
@@ -288,7 +292,7 @@ void Input_Update () {
 
 
         /* DeviceType_Mouse */
-        case SDL_MOUSEBUTTONDOWN: {
+        case SDL_EVENT_MOUSE_BUTTON_DOWN: {
           Device device = { DeviceType_Mouse, sdl.button.which };
 
           event.device = device;
@@ -301,7 +305,7 @@ void Input_Update () {
         }
         break;
 
-        case SDL_MOUSEBUTTONUP: {
+        case SDL_EVENT_MOUSE_BUTTON_UP: {
           Device device = { DeviceType_Mouse, sdl.button.which };
 
           event.device = device;
@@ -314,7 +318,7 @@ void Input_Update () {
         }
         break;
 
-        case SDL_MOUSEMOTION: {
+        case SDL_EVENT_MOUSE_MOTION: {
           /* NOTE : Mouse motion never causes pressed/down/released events. */
           Device device = { DeviceType_Mouse, sdl.motion.which };
           DeviceState* deviceState = Input_EnsureDeviceState(device);
@@ -341,7 +345,7 @@ void Input_Update () {
         }
         break;
 
-        case SDL_MOUSEWHEEL: {
+        case SDL_EVENT_MOUSE_WHEEL: {
           Device device = { DeviceType_Mouse, sdl.wheel.which };
           Input_EnsureDeviceState(device);
 
@@ -367,11 +371,11 @@ void Input_Update () {
 
 
         /* DeviceType_Gamepad */
-        case SDL_CONTROLLERBUTTONDOWN: {
-          Device device = { DeviceType_Gamepad, (uint32) sdl.cbutton.which };
+        case SDL_EVENT_GAMEPAD_BUTTON_DOWN: {
+          Device device = { DeviceType_Gamepad, (uint32) sdl.gbutton.which };
 
           event.device = device;
-          event.button = Button_FromSDLControllerButton((SDL_GameControllerButton) sdl.cbutton.button);
+          event.button = Button_FromSDLControllerButton((SDL_GamepadButton) sdl.gbutton.button);
           event.value  = 1.0f;
           event.state  = State_Changed | State_Pressed | State_Down;
           Input_SetButton(event);
@@ -379,11 +383,11 @@ void Input_Update () {
         }
         break;
 
-        case SDL_CONTROLLERBUTTONUP: {
-          Device device = { DeviceType_Gamepad, (uint32) sdl.cbutton.which };
+        case SDL_EVENT_GAMEPAD_BUTTON_UP: {
+          Device device = { DeviceType_Gamepad, (uint32) sdl.gbutton.which };
 
           event.device = device;
-          event.button = Button_FromSDLControllerButton((SDL_GameControllerButton) sdl.cbutton.button);
+          event.button = Button_FromSDLControllerButton((SDL_GamepadButton) sdl.gbutton.button);
           event.value  = 0.0f;
           event.state  = State_Changed | State_Released;
           Input_SetButton(event);
@@ -391,11 +395,11 @@ void Input_Update () {
         }
         break;
 
-        case SDL_CONTROLLERAXISMOTION: {
-          Device device = { DeviceType_Gamepad, (uint32) sdl.caxis.which };
-          float value = Clamp((float) sdl.caxis.value / 32767.0f, -1.0f, 1.0f);
-          SDL_GameControllerAxis axis = (SDL_GameControllerAxis) sdl.caxis.axis;
-          if (axis == SDL_CONTROLLER_AXIS_LEFTY || axis == SDL_CONTROLLER_AXIS_RIGHTY)
+        case SDL_EVENT_GAMEPAD_AXIS_MOTION: {
+          Device device = { DeviceType_Gamepad, (uint32) sdl.gaxis.which };
+          float value = Clamp((float) sdl.gaxis.value / 32767.0f, -1.0f, 1.0f);
+          SDL_GamepadAxis axis = (SDL_GamepadAxis) sdl.gaxis.axis;
+          if (axis == SDL_GAMEPAD_AXIS_LEFTY || axis == SDL_GAMEPAD_AXIS_RIGHTY)
             value = -value;
 
           event.device = device;
@@ -407,45 +411,39 @@ void Input_Update () {
         }
         break;
 
-        case SDL_CONTROLLERDEVICEADDED: {
-          if (SDL_IsGameController(sdl.cdevice.which) == SDL_TRUE) {
-            SDL_GameController* sdlController = SDL_GameControllerOpen(sdl.cdevice.which);
-            if (sdlController == 0) {
-              Warn("Input_Update: SDL_GameControllerOpen failed");
-            }
-            else {
-              SDL_Joystick* sdlJoystick = SDL_GameControllerGetJoystick(sdlController);
-              uint32        id          = (uint32) SDL_JoystickInstanceID(sdlJoystick);
-              Device        device      = { DeviceType_Gamepad, id };
-              DeviceState*  deviceState = Input_EnsureDeviceState(device);
-              deviceState->isConnected  = true;
+        case SDL_EVENT_GAMEPAD_ADDED: {
+          if (SDL_IsGamepad(sdl.gdevice.which)) {
+            SDL_Gamepad* sdlGamepad = SDL_OpenGamepad(sdl.gdevice.which);
+            if (!sdlGamepad) {
+              Warn("Input_Update: SDL_OpenGamepad failed");
+            } else {
+              uint32 id = (uint32) sdl.gdevice.which;
+              Device device = { DeviceType_Gamepad, id };
+              DeviceState* deviceState = Input_EnsureDeviceState(device);
+              deviceState->isConnected = true;
             }
           }
         }
         break;
 
-        case SDL_CONTROLLERDEVICEREMOVED: {
-          /* NOTE : SDL already sends events to zero out all game controller
-           *        input so there's no need to do it manually. */
-
-          Device        device      = { DeviceType_Gamepad, (uint32) sdl.cdevice.which };
+        case SDL_EVENT_GAMEPAD_REMOVED: {
+          Device        device      = { DeviceType_Gamepad, (uint32) sdl.gdevice.which };
           DeviceState*  deviceState = Input_GetDeviceState(device);
           deviceState->isConnected  = false;
 
-          SDL_GameController* sdlController = SDL_GameControllerFromInstanceID(sdl.cdevice.which);
-          if (sdlController)
-            SDL_GameControllerClose(sdlController);
+          SDL_Gamepad* sdlGamepad = SDL_GetGamepadFromID(sdl.gdevice.which);
+          if (sdlGamepad)
+            SDL_CloseGamepad(sdlGamepad);
         }
         break;
 
-        /* TODO : Maybe we should release all input then re-set it? */
-        case SDL_CONTROLLERDEVICEREMAPPED: {
-          SDL_GameController* sdlController = SDL_GameControllerFromInstanceID(sdl.cdevice.which);
-          Device              device        = { DeviceType_Gamepad, (uint32) sdl.cdevice.which };
-          DeviceState*        deviceState   = Input_GetDeviceState(device);
+        case SDL_EVENT_GAMEPAD_REMAPPED: {
+          SDL_Gamepad* sdlGamepad = SDL_GetGamepadFromID(sdl.gdevice.which);
+          Device       device     = { DeviceType_Gamepad, (uint32) sdl.gdevice.which };
+          DeviceState* deviceState = Input_GetDeviceState(device);
 
           for (int32 iBtn = Button_Gamepad_Button_First; iBtn <= Button_Gamepad_Button_Last; iBtn++) {
-            float value = (float) SDL_GameControllerGetButton(sdlController, Button_ToSDLControllerButton(iBtn));
+            float value = SDL_GetGamepadButton(sdlGamepad, Button_ToSDLControllerButton(iBtn)) ? 1.0f : 0.0f;
             if (value != deviceState->axes[iBtn]) {
               event.device = device;
               event.button = iBtn;
@@ -457,7 +455,7 @@ void Input_Update () {
           }
 
           for (int32 iAxis = Button_Gamepad_Axis_First; iAxis <= Button_Gamepad_Axis_Last; iAxis++) {
-            float value = (float) SDL_GameControllerGetAxis(sdlController, Button_ToSDLControllerAxis(iAxis));
+            float value = (float) SDL_GetGamepadAxis(sdlGamepad, Button_ToSDLControllerAxis(iAxis));
             value = Clamp(value / 32767.0f, -1.0f, 1.0f);
             if (iAxis == Button_Gamepad_LStickY || iAxis == Button_Gamepad_RStickY)
               value = -value;
@@ -476,7 +474,7 @@ void Input_Update () {
 
 
         /* DeviceType_Null */
-        case SDL_QUIT: {
+        case SDL_EVENT_QUIT: {
           Device device = { DeviceType_Null, 0 };
 
           event.device = device;
@@ -488,23 +486,19 @@ void Input_Update () {
         }
         break;
 
-        case SDL_WINDOWEVENT: {
-          if (sdl.window.event == SDL_WINDOWEVENT_FOCUS_GAINED)
-            SDL_CaptureMouse(SDL_TRUE);
+        case SDL_EVENT_WINDOW_FOCUS_GAINED:
+          SDL_CaptureMouse(true);
+          break;
 
-          /* TODO : Test button release on focus loss */
-          if (sdl.window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
-            SDL_CaptureMouse(SDL_FALSE);
+        case SDL_EVENT_WINDOW_FOCUS_LOST: {
+          SDL_CaptureMouse(false);
 
-            /* OPTIMIZE : Do this without incurring the cost of the search and
-             *            removes in SetButton */
-            ArrayList_ForEach(self.downButtons, InputEvent, down) {
-              down->timestamp = sdl.common.timestamp;
-              down->value     = 0.0f;
-              down->state     = State_Changed | Input_DetermineButtonState(event);
-              Input_SetButton(*down);
-              Input_AppendEvent(*down);
-            }
+          ArrayList_ForEach(self.downButtons, InputEvent, down) {
+            down->timestamp = (uint32) SDL_GetTicks();
+            down->value     = 0.0f;
+            down->state     = State_Changed | Input_DetermineButtonState(*down);
+            Input_SetButton(*down);
+            Input_AppendEvent(*down);
           }
         }
         break;
@@ -518,7 +512,7 @@ void Input_Update () {
 
 void Input_LoadGamepadDatabase (cstr name) {
   cstr path = Resource_GetPath(ResourceType_Other, name);
-  int result = SDL_GameControllerAddMappingsFromFile(path);
+  int result = SDL_AddGamepadMappingsFromFile(path);
   if (result == -1)
     Fatal("Input_Init: Failed to add gamepad mappings");
 }
@@ -627,12 +621,12 @@ void Input_GetMouseScroll (Vec2i* scroll) {
 }
 
 void Input_SetMousePosition (Vec2i* position) {
-  SDL_WarpMouseInWindow(0, position->x, position->y);
+  SDL_WarpMouseInWindow(NULL, (float) position->x, (float) position->y);
 }
 
 void Input_SetMouseVisible (bool visible) {
   self.autoHideMouse = false;
-  SDL_ShowCursor(visible ? SDL_ENABLE : SDL_DISABLE);
+  if (visible) SDL_ShowCursor(); else SDL_HideCursor();
 }
 
 void Input_SetMouseVisibleAuto () {

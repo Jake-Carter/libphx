@@ -13,6 +13,8 @@ PRIVATE void        SoundDesc_Free         (SoundDesc*);
 PRIVATE float       SoundDesc_GetDuration  (SoundDesc*);
 PRIVATE cstr        SoundDesc_GetName      (SoundDesc*);
 PRIVATE cstr        SoundDesc_GetPath      (SoundDesc*);
+PRIVATE bool        SoundDesc_GetLooped    (SoundDesc*);
+PRIVATE bool        SoundDesc_Get3D        (SoundDesc*);
 PRIVATE void        SoundDesc_ToFile       (SoundDesc*, cstr);
 
 #endif

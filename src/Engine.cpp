@@ -15,9 +15,6 @@
 
 #include <stdio.h>
 
-/* On Windows, request usage of the dedicated GPU if the machine switches
- * between on-board and dedicated GPUs dynamically. Only works when exported
- * by the exe, not when exported by a dll. */
 #if WINDOWS
   extern "C" {
     __declspec(dllexport) ulong NvOptimusEnablement = 0x00000001;
@@ -28,10 +25,9 @@
 const uint32 subsystems =
   SDL_INIT_EVENTS |
   SDL_INIT_VIDEO |
-  SDL_INIT_TIMER |
   SDL_INIT_HAPTIC |
   SDL_INIT_JOYSTICK |
-  SDL_INIT_GAMECONTROLLER;
+  SDL_INIT_GAMEPAD;
 
 static cstr versionString = __DATE__ " " __TIME__;
 static TimeStamp initTime = 0;
@@ -42,31 +38,32 @@ void Engine_Init (int glVersionMajor, int glVersionMinor) {
 
   if (firstTime) {
     firstTime = false;
-    /* Check SDL version compatibility. */ {
-      SDL_version compiled;
-      SDL_version linked;
-      SDL_VERSION(&compiled);
-      SDL_GetVersion(&linked);
-      if (compiled.major != linked.major ||
-          compiled.minor != linked.minor ||
-          compiled.patch != linked.patch)
-      {
+    {
+      const int compiled = SDL_VERSION;
+      const int linked = SDL_GetVersion();
+      if (compiled != linked) {
         puts("Engine_Init: Detected SDL version mismatch:");
-        printf("  Version (Compiled) : %d.%d.%d\n", compiled.major, compiled.minor, compiled.patch);
-        printf("  Version (Linked)   : %d.%d.%d\n", linked.major, linked.minor, linked.patch);
+        printf("  Version (Compiled) : %d.%d.%d\n",
+          SDL_VERSIONNUM_MAJOR(compiled),
+          SDL_VERSIONNUM_MINOR(compiled),
+          SDL_VERSIONNUM_MICRO(compiled));
+        printf("  Version (Linked)   : %d.%d.%d\n",
+          SDL_VERSIONNUM_MAJOR(linked),
+          SDL_VERSIONNUM_MINOR(linked),
+          SDL_VERSIONNUM_MICRO(linked));
         Fatal("Engine_Init: Terminating.");
       }
     }
 
-    if (SDL_Init(0) != 0)
-      Fatal("Engine_Init: Failed to initialize SDL");
+    if (!SDL_Init(0))
+      Fatal("Engine_Init: Failed to initialize SDL: %s", SDL_GetError());
     if (!Directory_Create("log"))
       Fatal("Engine_Init: Failed to create log directory.");
     atexit(SDL_Quit);
   }
 
-  if (SDL_InitSubSystem(subsystems) != 0)
-    Fatal("Engine_Init: Failed to initialize SDL's subsystems");
+  if (!SDL_InitSubSystem(subsystems))
+    Fatal("Engine_Init: Failed to initialize SDL's subsystems: %s", SDL_GetError());
 
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, glVersionMajor);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, glVersionMinor);

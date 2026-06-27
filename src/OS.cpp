@@ -14,6 +14,6 @@ cstr OS_GetVideoDriver () {
 }
 
 void OS_SetClipboard (cstr text) {
-  if (SDL_SetClipboardText(text) != 0)
+  if (!SDL_SetClipboardText(text))
     Fatal("OS_SetClipboard: %s", SDL_GetError());
 }

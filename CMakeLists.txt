@@ -1,100 +1,149 @@
 cmake_minimum_required (VERSION 3.21)
+
 project (LibPHX)
+
 include (script/build/Shared.cmake)
 
+include (cmake/Dependencies.cmake)
+
+
+
 # ------------------------------------------------------------------------------
+
+
 
 file (GLOB HEADERS "include/*.h")
+
 file (GLOB SOURCES "src/*.cpp")
 
+
+
+# Exclude legacy FMOD audio backend when disabled (SDL3 backend is default)
+
+if (NOT PHX_ENABLE_FMOD)
+
+  list (FILTER SOURCES EXCLUDE REGEX ".*/AudioBackend_FMOD\\.cpp$")
+
+endif ()
+
+
+
 add_library (phx SHARED ${SOURCES} ${HEADERS})
+
+add_dependencies (phx luajit_ext)
+
 phx_configure_output_dir (phx)
+
 phx_configure_target_properties (phx)
 
+
+
 target_compile_definitions (phx PRIVATE LIBPHX_BUILDING=1)
+
+if (NOT PHX_ENABLE_FMOD)
+
+  target_compile_definitions (phx PRIVATE PHX_ENABLE_FMOD=0 PHX_AUDIO_SDL3=1)
+
+else ()
+
+  target_compile_definitions (phx PRIVATE PHX_ENABLE_FMOD=1)
+
+endif ()
+
+
+
 target_include_directories (phx PUBLIC "include")
+
 target_include_directories (phx PUBLIC "ext/include")
-target_include_directories (phx PUBLIC "ext/include/bullet")
-target_link_directories (phx PUBLIC "ext/lib/${PLATARCH}")
+
+target_include_directories (phx PUBLIC "${PHX_LUAJIT_INCLUDE_DIR}")
+
+target_include_directories (phx PUBLIC "${PHX_DR_LIBS_DIR}")
+
+
 
 set_target_properties (phx PROPERTIES
+
   PREFIX "lib"
+
   OUTPUT_NAME_DEBUG "phx${ARCH}d"
+
   OUTPUT_NAME_RELEASE "phx${ARCH}"
+
   OUTPUT_NAME_RELWITHDEBINFO "phx${ARCH}"
+
   OUTPUT_NAME_MINSIZEREL "phx${ARCH}")
 
-# ------------------------------------------------------------------------------
 
-if (WINDOWS)
-
-  # register an external shared library
-  function (add_extlib name lib dll)
-    add_library (${name} SHARED IMPORTED GLOBAL)
-    set_property (TARGET ${name} PROPERTY IMPORTED_IMPLIB "${CMAKE_CURRENT_SOURCE_DIR}/ext/lib/${PLATARCH}/${lib}")
-    set_property (TARGET ${name} PROPERTY IMPORTED_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/ext/lib/${PLATARCH}/${dll}")
-  endfunction ()
-
-  # link target to an external library; also add a post-build step to
-  # copy the library DLL into the bin folder
-  function (target_link_extlib target lib)
-    target_link_libraries (${target} ${lib})
-    add_custom_command (TARGET ${target} POST_BUILD
-      COMMAND ${CMAKE_COMMAND} -E copy_if_different
-      $<TARGET_FILE:${lib}> $<TARGET_FILE_DIR:${target}>
-    )
-  endfunction ()
-
-  add_extlib (glew glew32.lib glew32.dll)
-  add_extlib (lz4 liblz4.lib liblz4.dll)
-  add_extlib (lua51 lua51.lib lua51.dll)
-  add_extlib (sdl2 SDL2.lib SDL2.dll)
-
-  if (ARCH EQUAL "32")
-    add_extlib (fmod fmodL_vc.lib fmodL.dll)
-    add_extlib (fmodstudio fmodstudioL_vc.lib fmodstudioL.dll)
-  else ()
-    add_extlib (fmod fmodL64_vc.lib fmodL64.dll)
-    add_extlib (fmodstudio fmodstudioL64_vc.lib fmodstudioL64.dll)
-  endif ()
-
-elseif (LINUX)
-
-  # TODO
-
-endif ()
 
 # ------------------------------------------------------------------------------
+
+# Third-party link libraries
+
+# ------------------------------------------------------------------------------
+
+
 
 if (WINDOWS)
 
   target_link_libraries (phx
+
     opengl32.lib
-    user32.lib winmm.lib Ws2_32.lib
-    freetype.lib
-    BulletCollision.lib BulletDynamics.lib LinearMath.lib)
 
-  target_link_extlib (phx glew)
-  target_link_extlib (phx sdl2)
-  target_link_extlib (phx lz4)
-  target_link_extlib (phx lua51)
-  target_link_extlib (phx fmod)
-  target_link_extlib (phx fmodstudio)
+    user32.lib winmm.lib Ws2_32.lib
+
+    glad
+
+    freetype
+
+    lz4_static
+
+    BulletCollision BulletDynamics LinearMath
+
+    SDL3::SDL3
+
+    lua51)
+
+
+
+  phx_copy_runtime_dll (phx "${LUAJIT_SRC_DIR}/src/lua51.dll")
+  add_custom_command (TARGET phx POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      $<TARGET_FILE:SDL3-shared> $<TARGET_FILE_DIR:phx>
+    COMMENT "Copying SDL3.dll")
+
+
 
 elseif (LINUX)
 
   target_link_libraries (phx
-    GL
-    GLEW
-    dl
-    SDL2
-    freetype
-    luajit-5.1
-    lz4
-    fmod fmodstudio
-    BulletCollision BulletDynamics)
 
-  # Add ext/lib/{$PLATARCH} to runtime library search path
-  target_link_options (phx PRIVATE "-Wl,-rpath,../ext/lib/${PLATARCH}")
+    GL
+
+    dl
+
+    glad
+
+    freetype
+
+    lz4_static
+
+    BulletCollision BulletDynamics LinearMath
+
+    SDL3::SDL3
+
+    lua51)
 
 endif ()
+
+
+
+# Suppress missing-PDB warnings from third-party static libs
+
+if (MSVC)
+
+  target_link_options (phx PRIVATE "/ignore:4099")
+
+endif ()
+
+

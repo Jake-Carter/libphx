@@ -188,7 +188,7 @@ void StrMap_Dump (StrMap* self) {
     if (!node->key) continue;
     printf("  [%03i]:\n", i);
     while (node) {
-      printf("    (%lx) %s -> %p\n", Hash(node->key), node->key, node->value);
+      printf("    (%llx) %s -> %p\n", (unsigned long long) Hash(node->key), node->key, node->value);
       node = node->next;
     }
   }

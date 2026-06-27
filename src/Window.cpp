@@ -5,27 +5,43 @@
 #include "Viewport.h"
 #include "Window.h"
 #include "WindowMode.h"
+#include "WindowPos.h"
 
 struct Window {
   SDL_Window* handle;
   SDL_GLContext context;
   WindowMode mode;
+  bool fullscreen;
 };
 
 Window* Window_Create (cstr title, int x, int y, int sx, int sy, WindowMode mode) {
   Window* self = MemNew(Window);
-  mode |= SDL_WINDOW_OPENGL;
-  self->handle = SDL_CreateWindow(title, x, y, sx, sy, mode);
-  self->context = SDL_GL_CreateContext(self->handle);
   self->mode = mode;
+  self->fullscreen = (mode & WindowMode_Fullscreen) != 0;
+  mode |= SDL_WINDOW_OPENGL;
+
+  self->handle = SDL_CreateWindow(title, sx, sy, mode);
+  if (!self->handle)
+    Fatal("Failed to create window: %s", SDL_GetError());
+
+  if (x != WindowPos_Default || y != WindowPos_Default)
+    SDL_SetWindowPosition(self->handle, x, y);
+
+  self->context = SDL_GL_CreateContext(self->handle);
   if (!self->context)
     Fatal("Failed to create OpenGL context for window");
+
+  if (self->fullscreen) {
+    SDL_SetWindowFullscreenMode(self->handle, NULL);
+    SDL_SetWindowFullscreen(self->handle, true);
+  }
+
   OpenGL_Init();
   return self;
 }
 
 void Window_Free (Window* self) {
-  SDL_GL_DeleteContext(self->context);
+  SDL_GL_DestroyContext(self->context);
   SDL_DestroyWindow(self->handle);
   MemFree(self);
 }
@@ -55,7 +71,13 @@ cstr Window_GetTitle (Window* self) {
 }
 
 void Window_SetFullscreen (Window* self, bool fs) {
-  SDL_SetWindowFullscreen(self->handle, fs ? WindowMode_Fullscreen : 0);
+  if (fs) {
+    SDL_SetWindowFullscreenMode(self->handle, NULL);
+    SDL_SetWindowFullscreen(self->handle, true);
+  } else {
+    SDL_SetWindowFullscreen(self->handle, false);
+  }
+  self->fullscreen = fs;
 }
 
 void Window_SetPosition (Window* self, WindowPos x, WindowPos y) {
@@ -75,11 +97,7 @@ void Window_SetVsync (Window*, bool vsync) {
 }
 
 void Window_ToggleFullscreen (Window* self) {
-  if (self->mode & WindowMode_Fullscreen)
-    SDL_SetWindowFullscreen(self->handle, 0);
-  else
-    SDL_SetWindowFullscreen(self->handle, WindowMode_Fullscreen);
-  self->mode ^= WindowMode_Fullscreen;
+  Window_SetFullscreen(self, !self->fullscreen);
 }
 
 void Window_Hide (Window* self) {

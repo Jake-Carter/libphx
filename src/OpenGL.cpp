@@ -2,12 +2,14 @@
 #include "CullFace.h"
 #include "OpenGL.h"
 #include "RenderState.h"
+#include "SDL.h"
 
 void OpenGL_Init () {
   static bool init = false;
   if (!init) {
     init = true;
-    glewInit();
+    if (!gladLoadGL((GLADloadfunc) SDL_GL_GetProcAddress))
+      Fatal("OpenGL_Init: gladLoadGL failed");
   }
 
   GLCALL(glDisable(GL_MULTISAMPLE))
@@ -32,8 +34,6 @@ void OpenGL_Init () {
   GLCALL(glLoadIdentity())
   GLCALL(glMatrixMode(GL_MODELVIEW))
   GLCALL(glLoadIdentity())
-
-  // GLCALL(glDepthRange(-1, 1))
 
   RenderState_PushAllDefaults();
 }

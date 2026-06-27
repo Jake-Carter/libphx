@@ -1,15 +1,20 @@
 #ifndef PHX_SoundDef
 #define PHX_SoundDef
 
+#include "AudioBackend.h"
 #include "Common.h"
 #include "RefCounted.h"
-#include "fmod/fmod.h"
 
 struct SoundDesc {
   RefCounted;
-  FMOD_SOUND* handle;
-  cstr        name;
-  cstr        path;
+  PCMBuffer* pcm;
+  cstr       name;
+  cstr       path;
+  bool       isLooped;
+  bool       is3D;
+  bool       loadStarted;
+  bool       loadComplete;
+  bool       loadFailed;
 };
 
 typedef uint8 SoundState;
@@ -22,7 +27,7 @@ const SoundState SoundState_Freed    = 5;
 
 struct Sound {
   SoundDesc*    desc;
-  FMOD_CHANNEL* handle;
+  AudioVoiceId  voice;
   SoundState    state;
   Vec3f const*  autoPos;
   Vec3f const*  autoVel;
