@@ -71,6 +71,7 @@ static struct {
   float            distanceScale;
   float            rolloff;
   float            mixBuffer[PHX_MIX_FRAMES * PHX_AUDIO_CHANNELS];
+  float            lastMixPeak;
 } self;
 
 static float Voice_ReadSample (Voice* v, int channel) {
@@ -114,8 +115,11 @@ static float Voice_ComputeGain (Voice* v) {
   if (v->is3D) {
     Vec3f delta = Vec3f_Sub(v->pos, self.listenerPos);
     float dist = Vec3f_Length(delta);
-    dist = Max(dist, 0.001f);
-    gain *= 1.0f / (1.0f + self.rolloff * dist * self.distanceScale);
+    /* distanceScale = min distance (full volume inside); rolloff scales falloff beyond it */
+    float minDist = Max(self.distanceScale, 0.001f);
+    dist = Max(dist, minDist);
+    float excess = dist - minDist;
+    gain *= minDist / (minDist + self.rolloff * excess);
     gain *= v->level3D;
   }
   return gain;
@@ -146,6 +150,7 @@ static void Voice_ComputePan (Voice* v, float* panL, float* panR) {
 
 static void AudioBackend_Mix () {
   MemZero(self.mixBuffer, sizeof(self.mixBuffer));
+  self.lastMixPeak = 0.0f;
 
   for (int v = 0; v < PHX_MAX_VOICES; ++v) {
     Voice* voice = &self.voices[v];
@@ -162,8 +167,16 @@ static void AudioBackend_Mix () {
         ? Voice_ReadSample(voice, 1)
         : sampleL;
 
-      self.mixBuffer[i * 2 + 0] += sampleL * gain * panL;
-      self.mixBuffer[i * 2 + 1] += sampleR * gain * panR;
+      float outL = sampleL * gain * panL;
+      float outR = sampleR * gain * panR;
+      self.mixBuffer[i * 2 + 0] += outL;
+      self.mixBuffer[i * 2 + 1] += outR;
+
+      float peakL = fabsf(outL);
+      float peakR = fabsf(outR);
+      if (peakL > self.lastMixPeak) self.lastMixPeak = peakL;
+      if (peakR > self.lastMixPeak) self.lastMixPeak = peakR;
+
       Voice_Advance(voice, 1);
     }
   }
@@ -172,6 +185,10 @@ static void AudioBackend_Mix () {
     self.stream,
     self.mixBuffer,
     PHX_MIX_FRAMES * PHX_AUDIO_CHANNELS * (int) sizeof(float));
+}
+
+float AudioBackend_GetLastMixPeak () {
+  return self.lastMixPeak;
 }
 
 void AudioBackend_Init () {
@@ -357,6 +374,8 @@ void AudioBackend_LoadPCM_Async (cstr path, SoundDesc* desc) {
     desc->loadComplete = false;
     StrFree(job->path);
     MemFree(job);
+  } else {
+    SDL_DetachThread(thread);
   }
 }
 
@@ -462,4 +481,11 @@ bool AudioBackend_VoiceGetLooped (AudioVoiceId id) {
 bool AudioBackend_VoiceGet3D (AudioVoiceId id) {
   if (id < 0 || id >= PHX_MAX_VOICES) return false;
   return self.voices[id].is3D;
+}
+
+float AudioBackend_VoiceGetPlayPos (AudioVoiceId id) {
+  if (id < 0 || id >= PHX_MAX_VOICES) return 0.0f;
+  Voice* v = &self.voices[id];
+  if (!v->pcm || v->pcm->sampleRate <= 0) return 0.0f;
+  return (float) (v->playFrame / (double) v->pcm->sampleRate);
 }

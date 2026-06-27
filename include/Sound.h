@@ -35,6 +35,7 @@ PHX_API cstr    Sound_GetName                (Sound*);
 PHX_API cstr    Sound_GetPath                (Sound*);
 PHX_API bool    Sound_IsFinished             (Sound*);
 PHX_API bool    Sound_IsPlaying              (Sound*);
+PHX_API float   Sound_GetPlayPos             (Sound*);
 
 PHX_API void    Sound_Attach3DPos            (Sound*, Vec3f const* pos, Vec3f const* vel);
 PHX_API void    Sound_Set3DLevel             (Sound*, float);

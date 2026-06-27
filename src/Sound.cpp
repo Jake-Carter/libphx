@@ -182,6 +182,13 @@ bool Sound_IsPlaying (Sound* self) {
   return self->state == SoundState_Playing;
 }
 
+float Sound_GetPlayPos (Sound* self) {
+  Sound_EnsureState(self);
+  if (self->voice == AudioVoiceId_Invalid)
+    return 0.0f;
+  return AudioBackend_VoiceGetPlayPos(self->voice);
+}
+
 void Sound_Attach3DPos (Sound* self, Vec3f const* pos, Vec3f const* vel) {
   Sound_Set3DPos(self, pos, vel);
   self->autoPos = pos;

@@ -14,6 +14,7 @@ do -- C Definitions
     int32 Audio_GetLoadedCount    ();
     int32 Audio_GetPlayingCount   ();
     int32 Audio_GetTotalCount     ();
+    float Audio_GetLastMixPeak    ();
   ]]
 end
 
@@ -28,6 +29,7 @@ do -- Global Symbol Table
     GetLoadedCount    = libphx.Audio_GetLoadedCount,
     GetPlayingCount   = libphx.Audio_GetPlayingCount,
     GetTotalCount     = libphx.Audio_GetTotalCount,
+    GetLastMixPeak    = libphx.Audio_GetLastMixPeak,
   }
 
   if onDef_Audio then onDef_Audio(Audio, mt) end

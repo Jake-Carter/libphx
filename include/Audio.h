@@ -16,6 +16,7 @@ PHX_API void        Audio_Update             ();
 PHX_API int32       Audio_GetLoadedCount     ();
 PHX_API int32       Audio_GetPlayingCount    ();
 PHX_API int32       Audio_GetTotalCount      ();
+PHX_API float       Audio_GetLastMixPeak     ();
 
 /* --- Private API ---------------------------------------------------------- */
 

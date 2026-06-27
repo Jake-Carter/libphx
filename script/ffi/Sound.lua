@@ -21,6 +21,7 @@ do -- C Definitions
     cstr   Sound_GetPath               (Sound*);
     bool   Sound_IsFinished            (Sound*);
     bool   Sound_IsPlaying             (Sound*);
+    float  Sound_GetPlayPos            (Sound*);
     void   Sound_Attach3DPos           (Sound*, Vec3f const* pos, Vec3f const* vel);
     void   Sound_Set3DLevel            (Sound*, float);
     void   Sound_Set3DPos              (Sound*, Vec3f const* pos, Vec3f const* vel);
@@ -58,6 +59,7 @@ do -- Global Symbol Table
     GetPath               = libphx.Sound_GetPath,
     IsFinished            = libphx.Sound_IsFinished,
     IsPlaying             = libphx.Sound_IsPlaying,
+    GetPlayPos            = libphx.Sound_GetPlayPos,
     Attach3DPos           = libphx.Sound_Attach3DPos,
     Set3DLevel            = libphx.Sound_Set3DLevel,
     Set3DPos              = libphx.Sound_Set3DPos,
@@ -99,6 +101,7 @@ do -- Metatype for class instances
       getPath               = libphx.Sound_GetPath,
       isFinished            = libphx.Sound_IsFinished,
       isPlaying             = libphx.Sound_IsPlaying,
+      getPlayPos            = libphx.Sound_GetPlayPos,
       attach3DPos           = libphx.Sound_Attach3DPos,
       set3DLevel            = libphx.Sound_Set3DLevel,
       set3DPos              = libphx.Sound_Set3DPos,

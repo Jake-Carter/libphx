@@ -100,6 +100,10 @@ int32 Audio_GetTotalCount () {
   return (int32) size;
 }
 
+float Audio_GetLastMixPeak () {
+  return AudioBackend_GetLastMixPeak();
+}
+
 void* Audio_GetHandle () {
   return 0;
 }

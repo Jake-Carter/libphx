@@ -51,5 +51,9 @@ void         AudioBackend_VoiceSetPlayPos     (AudioVoiceId voice, float seconds
 
 bool         AudioBackend_VoiceGetLooped      (AudioVoiceId voice);
 bool         AudioBackend_VoiceGet3D          (AudioVoiceId voice);
+float        AudioBackend_VoiceGetPlayPos     (AudioVoiceId voice);
+
+/* Peak absolute sample value from the most recent mix pass (0 if silent). */
+float        AudioBackend_GetLastMixPeak      ();
 
 #endif
