@@ -200,6 +200,7 @@ void AudioBackend_Free () {
     SDL_DestroyAudioStream(self.stream);
     self.stream = 0;
   }
+  MemZero(self.voices, sizeof(self.voices));
 }
 
 void AudioBackend_Update () {

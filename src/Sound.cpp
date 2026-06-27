@@ -31,7 +31,7 @@ static void Sound_EnsureLoadedImpl (Sound* self, cstr func) {
 
   if (SoundDesc_Get3D(self->desc)) {
     Vec3f zero = { 0, 0, 0 };
-    Sound_Set3DPos(self, &zero, &zero);
+    AudioBackend_VoiceSet3DPos(self->voice, &zero, &zero);
   }
 
   Sound_SetState(self, SoundState_Paused);

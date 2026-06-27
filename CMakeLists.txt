@@ -47,6 +47,10 @@ endif ()
 
 target_include_directories (phx PUBLIC "${PHX_BULLET_INCLUDE_DIR}")
 
+target_include_directories (phx BEFORE PUBLIC
+  "${freetype_SOURCE_DIR}/include"
+  "${freetype_BINARY_DIR}/include")
+
 target_include_directories (phx PUBLIC "include")
 
 target_include_directories (phx PUBLIC "ext/include")

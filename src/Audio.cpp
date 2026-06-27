@@ -3,6 +3,7 @@
 #include "AudioBackend.h"
 #include "MemPool.h"
 #include "PhxMath.h"
+#include "PhxString.h"
 #include "Sound.h"
 #include "SoundDef.h"
 #include "StrMap.h"
@@ -113,7 +114,9 @@ SoundDesc* Audio_AllocSoundDesc (cstr name) {
 }
 
 void Audio_DeallocSoundDesc (SoundDesc* desc) {
-  StrMap_Remove(self.descMap, desc->name);
+  cstr mapKey = StrAdd(desc->isLooped ? "LOOPED:" : "UNLOOPED:", desc->name);
+  StrMap_Remove(self.descMap, mapKey);
+  StrFree(mapKey);
   MemFree(desc);
 }
 

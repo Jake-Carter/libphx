@@ -53,8 +53,8 @@ inline static DeviceState* Input_EnsureDeviceState (Device device) {
 }
 
 inline static DeviceState* Input_GetDeviceState (Device device) {
-  DeviceList* deviceList = &self.deviceLists[device.type];
-  return ArrayList_GetPtr(deviceList->devices, device.id);
+  /* Ensure exists: Lua may query input (e.g. Control bindings) before Engine_Init. */
+  return Input_EnsureDeviceState(device);
 }
 
 inline static void Input_SetActiveDevice (Device device) {
