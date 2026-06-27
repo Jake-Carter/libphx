@@ -70,3 +70,11 @@ function (phx_configure_target_properties target)
 
   endif ()
 endfunction ()
+
+# Sets DEBUG=1 for Debug builds, DEBUG=0 otherwise. The lt executable passes
+# this to Lua as __debug__, which selects libphx64d vs libphx64 at load time.
+function (phx_configure_debug target)
+  target_compile_definitions (${target} PRIVATE
+    $<$<CONFIG:Debug>:DEBUG=1>
+    $<$<NOT:$<CONFIG:Debug>>:DEBUG=0>)
+endfunction ()
