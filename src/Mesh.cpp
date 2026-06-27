@@ -292,13 +292,19 @@ Error Mesh_Validate (Mesh* self) {
   int32   indexLen   = Mesh_GetIndexCount(self);
   int32*  indexData  = Mesh_GetIndexData(self);
   Vertex* vertexData = Mesh_GetVertexData(self);
+  int32   vertCount  = Mesh_GetVertexCount(self);
 
+  if (!indexData || !vertexData) return Error_Index | Error_Null;
   if (indexLen % 3 != 0) return Error_Index | Error_BadCount;
 
   for (int32 i = 0; i < indexLen; i += 3) {
     int32 i0 = indexData[i + 0];
     int32 i1 = indexData[i + 1];
     int32 i2 = indexData[i + 2];
+
+    if (i0 < 0 || i1 < 0 || i2 < 0 ||
+        i0 >= vertCount || i1 >= vertCount || i2 >= vertCount)
+      return Error_Index | Error_Invalid;
 
     Triangle triangle;
     triangle.vertices[0] = vertexData[i0].p;

@@ -1015,6 +1015,13 @@ static void BSPBuild_AnalyzeTree (BSP* self, Mesh* mesh, BSPNodeRef nodeRef, int
 BSP* BSP_Create (Mesh* mesh) {
   Assert(LEAF_TRIANGLE_COUNT <= MAX_LEAF_TRIANGLE_COUNT);
 
+  if (!mesh)
+    Fatal("BSP_Create: null mesh");
+
+  Error meshError = Mesh_Validate(mesh);
+  if (meshError != Error_None)
+    Fatal("BSP_Create: invalid mesh (error %#x)", meshError);
+
   /* NOTE: This function will use memory proportional to 2x the mesh memory.
    *        There will be one copy of all the polygons & vertices in the initial
    *        list of polygons passed to BSPBuild_CreateNode, which will then create new
@@ -1035,11 +1042,6 @@ BSP* BSP_Create (Mesh* mesh) {
   int32   indexLen   = Mesh_GetIndexCount(mesh);
   int32*  indexData  = Mesh_GetIndexData(mesh);
   Vertex* vertexData = Mesh_GetVertexData(mesh);
-
-  /* TODO : Implement some form of soft abort when the incoming mesh is bad. */
-  CHECK2 (
-    if (Mesh_Validate(mesh) != Error_None) return 0;
-  )
 
   BSPBuild_NodeData nodeData = {};
   nodeData.triangleCount     = indexLen / 3;
