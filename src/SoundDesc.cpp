@@ -10,23 +10,6 @@
 
 #include <SDL3/SDL.h>
 
-struct SoundDescLoadInfo {
-  bool isLooped;
-  bool is3D;
-};
-
-static bool SoundDesc_LoadInfoFromKey (cstr mapKey, SoundDescLoadInfo* info) {
-  if (StrBegins(mapKey, "LOOPED:")) {
-    info->isLooped = true;
-    return true;
-  }
-  if (StrBegins(mapKey, "UNLOOPED:")) {
-    info->isLooped = false;
-    return true;
-  }
-  return false;
-}
-
 void SoundDesc_FinishLoad (SoundDesc* self, cstr func) {
   if (self->loadComplete) return;
 

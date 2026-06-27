@@ -1,12 +1,7 @@
 cmake_minimum_required (VERSION 3.21)
-
 project (LibPHX)
-
 include (script/build/Shared.cmake)
-
 include (cmake/Dependencies.cmake)
-
-
 
 # ------------------------------------------------------------------------------
 
@@ -17,8 +12,6 @@ file (GLOB HEADERS "include/*.h")
 file (GLOB SOURCES "src/*.cpp")
 
 
-
-# Exclude legacy FMOD audio backend when disabled (SDL3 backend is default)
 
 if (NOT PHX_ENABLE_FMOD)
 
@@ -58,7 +51,7 @@ target_include_directories (phx PUBLIC "ext/include")
 
 target_include_directories (phx PUBLIC "${PHX_LUAJIT_INCLUDE_DIR}")
 
-target_include_directories (phx PUBLIC "${PHX_DR_LIBS_DIR}")
+target_include_directories (phx PUBLIC "${PHX_MINIMP3_DIR}")
 
 
 
@@ -107,9 +100,13 @@ if (WINDOWS)
 
 
   phx_copy_runtime_dll (phx "${LUAJIT_SRC_DIR}/src/lua51.dll")
+
   add_custom_command (TARGET phx POST_BUILD
+
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-      $<TARGET_FILE:SDL3-shared> $<TARGET_FILE_DIR:phx>
+
+      "$<TARGET_FILE:SDL3::SDL3>" $<TARGET_FILE_DIR:phx>
+
     COMMENT "Copying SDL3.dll")
 
 
@@ -138,12 +135,9 @@ endif ()
 
 
 
-# Suppress missing-PDB warnings from third-party static libs
-
 if (MSVC)
 
   target_link_options (phx PRIVATE "/ignore:4099")
 
 endif ()
-
 

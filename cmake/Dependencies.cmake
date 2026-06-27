@@ -85,7 +85,14 @@ FetchContent_Declare (bullet
   GIT_TAG        3.25
   GIT_SHALLOW    TRUE)
 
+set (_phx_saved_policy_minimum "${CMAKE_POLICY_VERSION_MINIMUM}")
+if (CMAKE_VERSION VERSION_GREATER_EQUAL "4.0")
+  set (CMAKE_POLICY_VERSION_MINIMUM 3.5)
+endif ()
 FetchContent_MakeAvailable (bullet)
+if (CMAKE_VERSION VERSION_GREATER_EQUAL "4.0")
+  set (CMAKE_POLICY_VERSION_MINIMUM "${_phx_saved_policy_minimum}")
+endif ()
 
 # ---------------------------------------------------------------------------
 # LuaJIT — MSVC build via ExternalProject
@@ -98,7 +105,7 @@ set (LUAJIT_BUILD_DIR "${CMAKE_BINARY_DIR}/_deps/luajit-build")
 
 ExternalProject_Add (luajit_ext
   GIT_REPOSITORY https://github.com/LuaJIT/LuaJIT.git
-  GIT_TAG        v2.1-20250116.0
+  GIT_TAG        v2.1.ROLLING
   GIT_SHALLOW    TRUE
   PREFIX         "${CMAKE_BINARY_DIR}/_deps/luajit"
   SOURCE_DIR     "${LUAJIT_SRC_DIR}"
@@ -119,23 +126,20 @@ set_target_properties (lua51 PROPERTIES
   IMPORTED_IMPLIB   "${LUAJIT_SRC_DIR}/src/lua51.lib"
   IMPORTED_LOCATION "${LUAJIT_SRC_DIR}/src/lua51.dll")
 
-# LuaJIT headers ship with the source tree
-set (PHX_LUAJIT_INCLUDE_DIR "${LUAJIT_SRC_DIR}/src" CACHE PATH "" FORCE)
+# LuaJIT headers (API); DLL built via ExternalProject below.
+set (PHX_LUAJIT_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ext/include/luajit" CACHE PATH "" FORCE)
 
-# ---------------------------------------------------------------------------
-# dr_wav / dr_mp3 — single-header decoders (header-only)
-# ---------------------------------------------------------------------------
-
-FetchContent_Declare (dr_libs
-  GIT_REPOSITORY https://github.com/mackron/dr_libs.git
-  GIT_TAG        master
+# minimp3 — single-header MP3 decoder (WAV via SDL_LoadWAV)
+FetchContent_Declare (minimp3
+  GIT_REPOSITORY https://github.com/lieff/minimp3.git
+  GIT_TAG        7b590fdcfa5a79c033e76eacc05d0c3e4c79f536
   GIT_SHALLOW    TRUE)
 
-FetchContent_GetProperties (dr_libs)
-if (NOT dr_libs_POPULATED)
-  FetchContent_Populate (dr_libs)
-  set (PHX_DR_LIBS_DIR "${dr_libs_SOURCE_DIR}" CACHE PATH "" FORCE)
+FetchContent_GetProperties (minimp3)
+if (NOT minimp3_POPULATED)
+  FetchContent_Populate (minimp3)
 endif ()
+set (PHX_MINIMP3_DIR "${minimp3_SOURCE_DIR}" CACHE PATH "" FORCE)
 
 # ---------------------------------------------------------------------------
 # Helper: copy a shared DLL next to phx/lt at build time

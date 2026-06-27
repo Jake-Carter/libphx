@@ -5,12 +5,14 @@
 #include "SoundDef.h"
 
 #include <SDL3/SDL.h>
-#define DR_WAV_IMPLEMENTATION
-#include "dr_wav.h"
-#define DR_MP3_IMPLEMENTATION
-#include "dr_mp3.h"
+
+#define MINIMP3_FLOAT_OUTPUT
+#define MINIMP3_IMPLEMENTATION
+#include "minimp3.h"
+#include "minimp3_ex.h"
 
 #include <math.h>
+#include <stdlib.h>
 #include <string.h>
 
 #define PHX_MAX_VOICES 64
@@ -233,65 +235,105 @@ static PCMBuffer* PCMBuffer_Create (float* samples, int frameCount, int channels
   return pcm;
 }
 
+static float* PCM_ConvertToStereo (float* src, int srcChannels, int frameCount) {
+  if (srcChannels == PHX_AUDIO_CHANNELS)
+    return src;
+
+  float* stereo = MemNewArray(float, frameCount * PHX_AUDIO_CHANNELS);
+  if (srcChannels == 1) {
+    for (int i = frameCount - 1; i >= 0; --i) {
+      stereo[i * 2 + 0] = src[i];
+      stereo[i * 2 + 1] = src[i];
+    }
+  } else {
+    for (int i = 0; i < frameCount; ++i) {
+      stereo[i * 2 + 0] = src[i * srcChannels + 0];
+      stereo[i * 2 + 1] = src[i * srcChannels + 1];
+    }
+  }
+  MemFree(src);
+  return stereo;
+}
+
+static PCMBuffer* LoadPCM_WAV (cstr path, bool* outOk) {
+  SDL_AudioSpec spec;
+  Uint8* raw = 0;
+  Uint32 rawLen = 0;
+  if (!SDL_LoadWAV(path, &spec, &raw, &rawLen))
+    return 0;
+
+  SDL_AudioSpec f32Spec = spec;
+  f32Spec.format = SDL_AUDIO_F32;
+
+  Uint8* f32Data = 0;
+  int f32Len = 0;
+  if (!SDL_ConvertAudioSamples(&spec, raw, (int) rawLen, &f32Spec, &f32Data, &f32Len)) {
+    SDL_free(raw);
+    return 0;
+  }
+  SDL_free(raw);
+
+  int channels = spec.channels;
+  int sampleRate = spec.freq;
+  int frameCount = f32Len / (channels * (int) sizeof(float));
+  float* samples = (float*) f32Data;
+
+  if (channels != PHX_AUDIO_CHANNELS) {
+    float* owned = MemNewArray(float, frameCount * channels);
+    MemCpy(owned, samples, (size_t) f32Len);
+    SDL_free(f32Data);
+    samples = PCM_ConvertToStereo(owned, channels, frameCount);
+  } else {
+    float* owned = MemNewArray(float, frameCount * PHX_AUDIO_CHANNELS);
+    MemCpy(owned, samples, (size_t) f32Len);
+    SDL_free(f32Data);
+    samples = owned;
+  }
+
+  *outOk = true;
+  return PCMBuffer_Create(samples, frameCount, PHX_AUDIO_CHANNELS, sampleRate);
+}
+
+static PCMBuffer* LoadPCM_MP3 (cstr path, bool* outOk) {
+  mp3dec_t dec;
+  mp3dec_init(&dec);
+
+  mp3dec_file_info_t info;
+  MemZero(&info, sizeof(info));
+  if (mp3dec_load(&dec, path, &info, 0, 0) != 0)
+    return 0;
+
+  int channels = info.channels;
+  int sampleRate = info.hz;
+  if (channels <= 0 || sampleRate <= 0 || !info.buffer || info.samples == 0) {
+    free(info.buffer);
+    return 0;
+  }
+
+  int frameCount = (int) (info.samples / (size_t) channels);
+  float* samples = info.buffer;
+
+  if (channels != PHX_AUDIO_CHANNELS)
+    samples = PCM_ConvertToStereo(samples, channels, frameCount);
+  else {
+    float* owned = MemNewArray(float, frameCount * PHX_AUDIO_CHANNELS);
+    MemCpy(owned, samples, (size_t) info.samples * sizeof(float));
+    free(info.buffer);
+    samples = owned;
+  }
+
+  *outOk = true;
+  return PCMBuffer_Create(samples, frameCount, PHX_AUDIO_CHANNELS, sampleRate);
+}
+
 PCMBuffer* AudioBackend_LoadPCM (cstr path, bool* outOk) {
   *outOk = false;
 
-  if (PathHasExt(path, ".wav") || PathHasExt(path, ".WAV")) {
-    drwav wav;
-    if (!drwav_init_file(&wav, path, 0)) return 0;
+  if (PathHasExt(path, ".wav") || PathHasExt(path, ".WAV"))
+    return LoadPCM_WAV(path, outOk);
 
-    drwav_uint64 frames = wav.totalPCMFrameCount;
-    float* samples = MemNewArray(float, (int) (frames * PHX_AUDIO_CHANNELS));
-    drwav_read_pcm_frames_f32(&wav, frames, samples);
-
-    if (wav.channels == 1) {
-      for (int i = (int) frames - 1; i >= 0; --i) {
-        samples[i * 2 + 1] = samples[i];
-        samples[i * 2 + 0] = samples[i];
-      }
-    } else if (wav.channels > 2) {
-      float* stereo = MemNewArray(float, (int) (frames * 2));
-      for (drwav_uint64 i = 0; i < frames; ++i) {
-        stereo[i * 2 + 0] = samples[i * wav.channels + 0];
-        stereo[i * 2 + 1] = samples[i * wav.channels + 1];
-      }
-      MemFree(samples);
-      samples = stereo;
-    }
-
-    drwav_uninit(&wav);
-    *outOk = true;
-    return PCMBuffer_Create(samples, (int) frames, PHX_AUDIO_CHANNELS, (int) wav.sampleRate);
-  }
-
-  if (PathHasExt(path, ".mp3") || PathHasExt(path, ".MP3")) {
-    drmp3 mp3;
-    if (!drmp3_init_file(&mp3, path, 0)) return 0;
-
-    drmp3_uint64 frames = mp3.totalPCMFrameCount;
-    if (frames == 0) {
-      float* temp = 0;
-      size_t total = 0;
-      float chunk[4096 * 2];
-      drmp3_uint64 read;
-      while ((read = drmp3_read_pcm_frames_f32(&mp3, 4096, chunk)) > 0) {
-        temp = (float*) MemRealloc(temp, (total + read * 2) * sizeof(float));
-        MemCpy(temp + total, chunk, (size_t) read * 2 * sizeof(float));
-        total += read * 2;
-      }
-      frames = total / 2;
-      *outOk = true;
-      drmp3_uninit(&mp3);
-      return PCMBuffer_Create(temp, (int) frames, PHX_AUDIO_CHANNELS, (int) mp3.sampleRate);
-    }
-
-    float* samples = MemNewArray(float, (int) (frames * PHX_AUDIO_CHANNELS));
-    drmp3_read_pcm_frames_f32(&mp3, frames, samples);
-    int rate = (int) mp3.sampleRate;
-    drmp3_uninit(&mp3);
-    *outOk = true;
-    return PCMBuffer_Create(samples, (int) frames, PHX_AUDIO_CHANNELS, rate);
-  }
+  if (PathHasExt(path, ".mp3") || PathHasExt(path, ".MP3"))
+    return LoadPCM_MP3(path, outOk);
 
   Warn("AudioBackend_LoadPCM: Unsupported format.\n  Path: %s", path);
   return 0;
