@@ -13,14 +13,6 @@ file (GLOB SOURCES "src/*.cpp")
 
 
 
-if (NOT PHX_ENABLE_FMOD)
-
-  list (FILTER SOURCES EXCLUDE REGEX ".*/AudioBackend_FMOD\\.cpp$")
-
-endif ()
-
-
-
 add_library (phx SHARED ${SOURCES} ${HEADERS})
 
 add_dependencies (phx luajit_ext)
@@ -31,17 +23,7 @@ phx_configure_target_properties (phx)
 
 
 
-target_compile_definitions (phx PRIVATE LIBPHX_BUILDING=1)
-
-if (NOT PHX_ENABLE_FMOD)
-
-  target_compile_definitions (phx PRIVATE PHX_ENABLE_FMOD=0 PHX_AUDIO_SDL3=1)
-
-else ()
-
-  target_compile_definitions (phx PRIVATE PHX_ENABLE_FMOD=1)
-
-endif ()
+target_compile_definitions (phx PRIVATE LIBPHX_BUILDING=1 PHX_AUDIO_SDL3=1)
 
 
 
@@ -53,10 +35,12 @@ target_include_directories (phx BEFORE PUBLIC
 
 target_include_directories (phx PUBLIC "include")
 
-# ext/include (stb, legacy reference headers) — active Bullet/FreeType/SDL from FetchContent
+# Vendored headers: stb, LuaJIT API, windirent (Windows directory iteration)
 target_include_directories (phx PUBLIC "ext/include")
 
 target_include_directories (phx PUBLIC "${PHX_LUAJIT_INCLUDE_DIR}")
+
+target_include_directories (phx PUBLIC "${PHX_LZ4_INCLUDE_DIR}")
 
 target_include_directories (phx PUBLIC "${PHX_MINIMP3_DIR}")
 

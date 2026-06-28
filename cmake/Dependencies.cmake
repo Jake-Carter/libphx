@@ -5,12 +5,6 @@ include (FetchContent)
 set (FETCHCONTENT_QUIET FALSE)
 
 # ---------------------------------------------------------------------------
-# Options
-# ---------------------------------------------------------------------------
-
-option (PHX_ENABLE_FMOD "Link FMOD audio (legacy); default is SDL3 audio backend" OFF)
-
-# ---------------------------------------------------------------------------
 # SDL3
 # ---------------------------------------------------------------------------
 
@@ -65,6 +59,7 @@ FetchContent_Declare (lz4
   SOURCE_SUBDIR  build/cmake)
 
 FetchContent_MakeAvailable (lz4)
+set (PHX_LZ4_INCLUDE_DIR "${lz4_SOURCE_DIR}/lib" CACHE PATH "" FORCE)
 
 # ---------------------------------------------------------------------------
 # Bullet Physics (static)
