@@ -36,6 +36,8 @@ Window* Window_Create (cstr title, int x, int y, int sx, int sy, WindowMode mode
     SDL_SetWindowFullscreen(self->handle, true);
   }
 
+  SDL_RaiseWindow(self->handle);
+
   OpenGL_Init();
   return self;
 }
