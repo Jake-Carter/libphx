@@ -94,10 +94,44 @@ set (PHX_BULLET_INCLUDE_DIR "${bullet_SOURCE_DIR}/src" CACHE PATH "" FORCE)
 # LuaJIT — MSVC build via ExternalProject
 # ---------------------------------------------------------------------------
 
+# Limit Theory relies on LuaJIT's JIT. LuaJIT does not provide a working JIT
+# backend for native Windows ARM64, so reject that target at configure time
+# instead of failing deep inside lj_arch.h / buildvm.
+if (WIN32)
+  set (_phx_target_arch "")
+  if (CMAKE_VS_PLATFORM_NAME)
+    set (_phx_target_arch "${CMAKE_VS_PLATFORM_NAME}")
+  elseif (CMAKE_GENERATOR_PLATFORM)
+    set (_phx_target_arch "${CMAKE_GENERATOR_PLATFORM}")
+  endif ()
+  string (TOUPPER "${_phx_target_arch}" _phx_target_arch_upper)
+  if (_phx_target_arch_upper STREQUAL "ARM64"
+      OR _phx_target_arch_upper STREQUAL "ARM64EC")
+    message (FATAL_ERROR
+      "Native Windows ${_phx_target_arch} is not supported: LuaJIT JIT is "
+      "required but unavailable on Windows ARM64.\n"
+      "On Windows ARM64 hardware, configure for x64 instead:\n"
+      "  cmake -S . -B build -A x64\n"
+      "The resulting binaries run under Windows x64 emulation with JIT enabled.")
+  endif ()
+endif ()
+
 include (ExternalProject)
 
 set (LUAJIT_SRC_DIR "${CMAKE_BINARY_DIR}/_deps/luajit-src")
 set (LUAJIT_BUILD_DIR "${CMAKE_BINARY_DIR}/_deps/luajit-build")
+
+# Forward the target architecture to the LuaJIT MSVC build. Without this the
+# batch script always sets up an x64 toolchain (vcvars64), so lua51.lib is
+# built x64 and fails to link against a non-x64 target — e.g.
+# "library machine type 'x64' conflicts with target machine type 'ARM64'".
+if (CMAKE_VS_PLATFORM_NAME)
+  set (LUAJIT_TARGET_ARCH "${CMAKE_VS_PLATFORM_NAME}")
+elseif (CMAKE_GENERATOR_PLATFORM)
+  set (LUAJIT_TARGET_ARCH "${CMAKE_GENERATOR_PLATFORM}")
+else ()
+  set (LUAJIT_TARGET_ARCH "${CMAKE_SYSTEM_PROCESSOR}")
+endif ()
 
 ExternalProject_Add (luajit_ext
   GIT_REPOSITORY https://github.com/LuaJIT/LuaJIT.git
@@ -108,7 +142,7 @@ ExternalProject_Add (luajit_ext
   BINARY_DIR     "${LUAJIT_BUILD_DIR}"
   CONFIGURE_COMMAND ""
   BUILD_COMMAND
-    cmd /c "${CMAKE_CURRENT_SOURCE_DIR}/cmake/build_luajit_msvc.bat" "${LUAJIT_SRC_DIR}"
+    cmd /c "${CMAKE_CURRENT_SOURCE_DIR}/cmake/build_luajit_msvc.bat" "${LUAJIT_SRC_DIR}" "${LUAJIT_TARGET_ARCH}"
   INSTALL_COMMAND ""
   BUILD_BYPRODUCTS
     "${LUAJIT_SRC_DIR}/src/lua51.lib"
