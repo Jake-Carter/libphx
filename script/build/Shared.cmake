@@ -18,6 +18,27 @@ endif ()
 
 set (PLATARCH "${PLATFORM}${ARCH}")
 
+# Windows target platform from the generator (-A ARM64EC, -A x64, etc.).
+set (PHX_WIN_TARGET_ARCH "")
+set (PHX_WIN_TARGET_ARCH_UPPER "")
+set (PHX_WINDOWS_ARM FALSE)
+set (PHX_ARM64EC FALSE)
+if (WINDOWS)
+  if (CMAKE_VS_PLATFORM_NAME)
+    set (PHX_WIN_TARGET_ARCH "${CMAKE_VS_PLATFORM_NAME}")
+  elseif (CMAKE_GENERATOR_PLATFORM)
+    set (PHX_WIN_TARGET_ARCH "${CMAKE_GENERATOR_PLATFORM}")
+  endif ()
+  string (TOUPPER "${PHX_WIN_TARGET_ARCH}" PHX_WIN_TARGET_ARCH_UPPER)
+  if (PHX_WIN_TARGET_ARCH_UPPER STREQUAL "ARM64"
+      OR PHX_WIN_TARGET_ARCH_UPPER STREQUAL "ARM64EC")
+    set (PHX_WINDOWS_ARM TRUE)
+  endif ()
+  if (PHX_WIN_TARGET_ARCH_UPPER STREQUAL "ARM64EC")
+    set (PHX_ARM64EC TRUE)
+  endif ()
+endif ()
+
 # MSVC defaults to /EHsc; project uses /EHs-c- (no exceptions). Strip /EHsc from
 # global flags so D9025 override warnings do not spam every translation unit.
 if (WINDOWS)
@@ -61,7 +82,17 @@ function (phx_configure_target_properties target)
     target_compile_options (${target} PRIVATE "$<$<CONFIG:Release>:/GL>")
     target_compile_options (${target} PRIVATE "/GS-")
     target_compile_options (${target} PRIVATE "/GR-")
-    target_compile_options (${target} PRIVATE "/arch:SSE2")
+    if (NOT PHX_WINDOWS_ARM)
+      target_compile_options (${target} PRIVATE "/arch:SSE2")
+    endif ()
+    if (PHX_ARM64EC)
+      # Match the Bullet targets on ARM64EC (see cmake/Dependencies.cmake):
+      # disable Bullet's x64 SSE path so btVector3 / btMatrix3x3 layouts stay
+      # ABI-consistent, and route the residual <emmintrin.h> include in
+      # btScalar.h through <intrin.h> so it compiles.
+      target_compile_definitions (${target} PRIVATE __BT_DISABLE_SSE__)
+      target_compile_options (${target} PRIVATE "/FIintrin.h")
+    endif ()
     # Residual D9025 if a TU still sees /EHsc from toolset defaults
     target_compile_options (${target} PRIVATE "/wd9025")
   elseif (LINUX)

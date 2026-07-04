@@ -15,7 +15,7 @@ if not defined TARGET_ARCH set "TARGET_ARCH=x64"
 REM --- Normalize the CMake target arch to a vcvars target token ---
 set "TGT="
 if /i "%TARGET_ARCH%"=="ARM64"   set "TGT=arm64"
-if /i "%TARGET_ARCH%"=="ARM64EC" set "TGT=arm64"
+if /i "%TARGET_ARCH%"=="ARM64EC" set "TGT=x64"
 if /i "%TARGET_ARCH%"=="AMD64"   set "TGT=x64"
 if /i "%TARGET_ARCH%"=="x64"     set "TGT=x64"
 if /i "%TARGET_ARCH%"=="x86_64"  set "TGT=x64"

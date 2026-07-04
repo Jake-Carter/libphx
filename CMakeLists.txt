@@ -25,6 +25,18 @@ phx_configure_target_properties (phx)
 
 target_compile_definitions (phx PRIVATE LIBPHX_BUILDING=1 PHX_AUDIO_SDL3=1)
 
+# minimp3 on Windows ARM (incl. ARM64EC) needs two workarounds:
+#  - MINIMP3_NO_SIMD: its NEON path brace-initializes float32x4_t (MSVC rejects).
+#  - __aarch64__: its ARMv6 clip helper is gated only by !__aarch64__ && !_M_ARM64
+#    and uses GCC inline asm. ARM64EC defines neither (it uses _M_ARM64EC), so
+#    minimp3 wrongly emits the 32-bit ARMv6 path. Only AudioBackend_SDL3.cpp
+#    includes minimp3, so scope the aarch64 hint to that translation unit.
+if (PHX_WINDOWS_ARM)
+  target_compile_definitions (phx PRIVATE MINIMP3_NO_SIMD)
+  set_source_files_properties (src/AudioBackend_SDL3.cpp PROPERTIES
+    COMPILE_DEFINITIONS "__aarch64__=1")
+endif ()
+
 
 
 target_include_directories (phx BEFORE PUBLIC "${PHX_BULLET_INCLUDE_DIR}")

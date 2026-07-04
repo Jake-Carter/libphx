@@ -90,30 +90,40 @@ if (CMAKE_VERSION VERSION_GREATER_EQUAL "4.0")
 endif ()
 set (PHX_BULLET_INCLUDE_DIR "${bullet_SOURCE_DIR}/src" CACHE PATH "" FORCE)
 
+# ARM64EC: Bullet's btScalar.h takes the x64 SSE path (ARM64EC defines _M_X64
+# but not _M_ARM64), which both (a) includes <emmintrin.h> directly and
+# (b) enables hand-written x64 SSE code (e.g. btDbvt.h) that does not survive
+# ARM64EC soft-intrinsic translation. Disable Bullet's SSE so it uses its
+# portable path (lowered to native NEON by the ARM64EC compiler), and force
+# <intrin.h> in for the one unconditional <emmintrin.h> include that remains.
+# These must match how phx compiles Bullet headers (see Shared.cmake) so the
+# btVector3 / btMatrix3x3 layouts stay ABI-consistent.
+if (PHX_ARM64EC)
+  foreach (_phx_bt
+      LinearMath BulletCollision BulletDynamics BulletSoftBody
+      BulletInverseDynamics Bullet3Common)
+    if (TARGET ${_phx_bt})
+      target_compile_definitions (${_phx_bt} PRIVATE __BT_DISABLE_SSE__)
+      target_compile_options (${_phx_bt} PRIVATE "/FIintrin.h")
+    endif ()
+  endforeach ()
+endif ()
+
 # ---------------------------------------------------------------------------
 # LuaJIT — MSVC build via ExternalProject
 # ---------------------------------------------------------------------------
 
 # Limit Theory relies on LuaJIT's JIT. LuaJIT does not provide a working JIT
 # backend for native Windows ARM64, so reject that target at configure time
-# instead of failing deep inside lj_arch.h / buildvm.
-if (WIN32)
-  set (_phx_target_arch "")
-  if (CMAKE_VS_PLATFORM_NAME)
-    set (_phx_target_arch "${CMAKE_VS_PLATFORM_NAME}")
-  elseif (CMAKE_GENERATOR_PLATFORM)
-    set (_phx_target_arch "${CMAKE_GENERATOR_PLATFORM}")
-  endif ()
-  string (TOUPPER "${_phx_target_arch}" _phx_target_arch_upper)
-  if (_phx_target_arch_upper STREQUAL "ARM64"
-      OR _phx_target_arch_upper STREQUAL "ARM64EC")
-    message (FATAL_ERROR
-      "Native Windows ${_phx_target_arch} is not supported: LuaJIT JIT is "
-      "required but unavailable on Windows ARM64.\n"
-      "On Windows ARM64 hardware, configure for x64 instead:\n"
-      "  cmake -S . -B build -A x64\n"
-      "The resulting binaries run under Windows x64 emulation with JIT enabled.")
-  endif ()
+# instead of failing deep inside lj_arch.h / buildvm. ARM64EC is allowed:
+# the engine builds natively while LuaJIT is built as x64 for JIT interop.
+if (WIN32 AND PHX_WIN_TARGET_ARCH_UPPER STREQUAL "ARM64")
+  message (FATAL_ERROR
+    "Native Windows ARM64 is not supported: LuaJIT JIT is required but "
+    "unavailable for native ARM64.\n"
+    "On Windows ARM64 hardware, use one of:\n"
+    "  cmake -S . -B build -A ARM64EC   (recommended; native engine + x64 LuaJIT JIT)\n"
+    "  cmake -S . -B build -A x64         (full x64 emulation)")
 endif ()
 
 include (ExternalProject)
@@ -125,7 +135,11 @@ set (LUAJIT_BUILD_DIR "${CMAKE_BINARY_DIR}/_deps/luajit-build")
 # batch script always sets up an x64 toolchain (vcvars64), so lua51.lib is
 # built x64 and fails to link against a non-x64 target — e.g.
 # "library machine type 'x64' conflicts with target machine type 'ARM64'".
-if (CMAKE_VS_PLATFORM_NAME)
+# ARM64EC uses native ARM codegen with x64 ABI; LuaJIT JIT still requires x64.
+if (PHX_ARM64EC)
+  set (LUAJIT_TARGET_ARCH "x64")
+  message (STATUS "ARM64EC target: building LuaJIT as x64 for JIT interop")
+elseif (CMAKE_VS_PLATFORM_NAME)
   set (LUAJIT_TARGET_ARCH "${CMAKE_VS_PLATFORM_NAME}")
 elseif (CMAKE_GENERATOR_PLATFORM)
   set (LUAJIT_TARGET_ARCH "${CMAKE_GENERATOR_PLATFORM}")
